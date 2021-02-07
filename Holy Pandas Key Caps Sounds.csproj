@@ -1,0 +1,10 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>WinExe</OutputType>
+        <TargetFramework>net5.0-windows</TargetFramework>
+        <RootNamespace>Holy_Pandas_Key_Caps_Sounds</RootNamespace>
+        <UseWindowsForms>true</UseWindowsForms>
+    </PropertyGroup>
+
+</Project>
