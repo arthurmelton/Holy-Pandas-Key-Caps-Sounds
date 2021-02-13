@@ -6,17 +6,20 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows.Forms;
+using Holy_Pandas_Key_Caps_Sounds.Properties;
+using Microsoft.Win32;
+
 namespace Holy_Pandas_Key_Caps_Sounds
 {
     static class Program
     {
-        private const int WH_KEYBOARD_LL = 13;
-        private const int WM_KEYDOWN = 0x0100;
-        private const int WM_KEYUP = 0x0101;
+        private const int WhKeyboardLl = 13;
+        private const int WmKeydown = 0x0100;
+        private const int WmKeyup = 0x0101;
         private static LowLevelKeyboardProc _proc = HookCallback;
-        private static IntPtr _hookID = IntPtr.Zero;
-        private static SoundPlayer soundDown = null;
-        private static SoundPlayer soundUp = null;
+        private static IntPtr _hookId = IntPtr.Zero;
+        private static SoundPlayer _soundDown;
+        private static SoundPlayer _soundUp;
 
         [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
         private static extern IntPtr SetWindowsHookEx(int idHook, LowLevelKeyboardProc lpfn, IntPtr hMod, uint dwThreadId);
@@ -37,76 +40,82 @@ namespace Holy_Pandas_Key_Caps_Sounds
         /// </summary>
         public static void Main()
         {
-            soundDown = new SoundPlayer(Properties.Resources.Holy_Pandas_down);
-            soundUp = new SoundPlayer(Properties.Resources.Holy_Pandas_up);
-            _hookID = SetHook(_proc);
+            _soundDown = new SoundPlayer(Resources.Holy_Pandas_down);
+            _soundUp = new SoundPlayer(Resources.Holy_Pandas_up);
+            _hookId = SetHook(_proc);
             Application.Run(new MyCustomApplicationContext());
-            UnhookWindowsHookEx(_hookID);
+            UnhookWindowsHookEx(_hookId);
         }
 
         private static IntPtr SetHook(LowLevelKeyboardProc proc)
         {
-            using (Process curProcess = Process.GetCurrentProcess())
-            using (ProcessModule curModule = curProcess.MainModule)
-            {
-                return SetWindowsHookEx(WH_KEYBOARD_LL, proc, GetModuleHandle(curModule.ModuleName), 0);
-            }
+            using var curProcess = Process.GetCurrentProcess();
+            using var curModule = curProcess.MainModule;
+
+            return curModule != null ? SetWindowsHookEx(WhKeyboardLl, proc, GetModuleHandle(curModule.ModuleName), 0) : default;
+
         }
 
         private delegate IntPtr LowLevelKeyboardProc(int nCode, IntPtr wParam, IntPtr lParam);
 
         private static IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam)
         {
-            if (nCode >= 0 && wParam == (IntPtr)WM_KEYDOWN)
+            if (nCode >= 0 && wParam == (IntPtr)WmKeydown)
             {
                 //int vkCode = Marshal.ReadInt32(lParam);
                 //Console.WriteLine((Keys)vkCode);
                 new Thread(() =>
                 {
                     Thread.CurrentThread.IsBackground = true;
-                    soundDown.Play();
+                    _soundDown.Play();
                 }).Start();
             }
-            if (nCode >= 0 && wParam == (IntPtr)WM_KEYUP)
+            if (nCode >= 0 && wParam == (IntPtr)WmKeyup)
             {
                 //int vkCode = Marshal.ReadInt32(lParam);
                 //Console.WriteLine((Keys)vkCode);
                 new Thread(() =>
                 {
                     Thread.CurrentThread.IsBackground = true;
-                    soundUp.Play();
+                    _soundUp.Play();
                 }).Start();
             }
-            return CallNextHookEx(_hookID, nCode, wParam, lParam);
+            return CallNextHookEx(_hookId, nCode, wParam, lParam);
         }
     }
 
     public class MyCustomApplicationContext : ApplicationContext
     {
-        private NotifyIcon trayIcon;
+        private readonly NotifyIcon _trayIcon;
 
         public MyCustomApplicationContext()
         {
 
             // Initialize Tray Icon
-            trayIcon = new NotifyIcon()
+            _trayIcon = new NotifyIcon
             {
-                Icon = Icon.ExtractAssociatedIcon(Assembly.GetExecutingAssembly().Location),
-                Text = "Holy Pandas Key Caps Sounds",
-                ContextMenuStrip = new ContextMenuStrip()
+                Icon = Icon.ExtractAssociatedIcon(Assembly.GetExecutingAssembly().Location), Text = @"Holy Pandas Key Caps Sounds", ContextMenuStrip = new ContextMenuStrip(), Visible = true
             };
-            trayIcon.Visible = true;
 
-            trayIcon.ContextMenuStrip.Items.Add("Exit", null, this.Exit);
+            _trayIcon.ContextMenuStrip.Items.Add("Exit", null, Exit);
+            _trayIcon.ContextMenuStrip.Items.Add("Start on startup", null, AddReg());
 
         }
 
-        void Exit(object sender, EventArgs e)
+        private void Exit(object sender, EventArgs e)
         {
-            // Hide tray icon, otherwise it will remain shown until user mouses over it
-            trayIcon.Visible = false;
+            // Hide tray icon, otherwise it will remain shown until user mouse's over it
+            _trayIcon.Visible = false;
 
             Application.Exit();
+        }
+
+        private static EventHandler AddReg()
+        {
+            var reg = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", true);
+            reg?.SetValue("Holy Pandas Key Caps Sounds", Application.ExecutablePath);
+
+            return null;
         }
     }
 }
